@@ -1,60 +1,42 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { signupAction } from './actions'
 
 type Organization = { id: string; name: string; type: string }
 
 export default function SignupPage() {
-  const router = useRouter()
   const [orgs, setOrgs] = useState<Organization[]>([])
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [orgId, setOrgId] = useState('')
+  const [role, setRole] = useState<'student' | 'teacher'>('student')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [doneEmail, setDoneEmail] = useState('')
 
   useEffect(() => {
     async function loadOrgs() {
       const supabase = createClient()
-      const { data } = await supabase.from('organizations').select('*').order('type')
+      const { data } = await supabase.from('organizations').select('*').order('name')
       if (data) setOrgs(data)
     }
     loadOrgs()
   }, [])
 
-  async function handleSignup(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!orgId) { setError('Please select your institution.'); return }
     setLoading(true)
     setError('')
-
-    const supabase = createClient()
-    const { data, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
-    })
-
-    if (signupError) {
-      setError(signupError.message)
+    const formData = new FormData(e.currentTarget)
+    const result = await signupAction(formData)
+    if (result.error) {
+      setError(result.error)
       setLoading(false)
-      return
+    } else {
+      setDoneEmail(result.email ?? '')
+      setDone(true)
     }
-
-    if (data.user) {
-      await supabase
-        .from('profiles')
-        .update({ full_name: fullName, organization_id: orgId })
-        .eq('id', data.user.id)
-    }
-
-    setDone(true)
-    setLoading(false)
   }
 
   if (done) {
@@ -64,7 +46,7 @@ export default function SignupPage() {
           <div className="text-5xl mb-4">📧</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
           <p className="text-gray-500">
-            We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then sign in.
+            We sent a confirmation link to <strong>{doneEmail}</strong>. Click it to activate your account, then sign in.
           </p>
           <Link href="/login" className="mt-6 inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
             Go to Sign In
@@ -77,60 +59,98 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-950 to-indigo-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="text-4xl mb-2">⚗️</div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
           <p className="text-gray-500 text-sm mt-1">Chemistry Learning Platform</p>
         </div>
 
-        <form onSubmit={handleSignup} className="space-y-4">
+        {/* Role selector */}
+        <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-5">
+          <button
+            type="button"
+            onClick={() => setRole('student')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'student' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+          >
+            Student
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole('teacher')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'teacher' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+          >
+            Teacher
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input type="hidden" name="role" value={role} />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input
+              name="fullName"
               type="text"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
               required
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Your full name"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-            <select
-              value={orgId}
-              onChange={e => setOrgId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select your institution…</option>
-              {orgs.map(org => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-            </select>
-          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
+              name="email"
               type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
               required
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="you@example.com"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
+              name="password"
               type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
               required
               minLength={8}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="At least 8 characters"
             />
           </div>
+
+          {/* Student only: institution */}
+          {role === 'student' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
+              <select
+                name="orgId"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                defaultValue=""
+              >
+                <option value="" disabled>Select your institution…</option>
+                {orgs.map(org => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Teacher only: secret code */}
+          {role === 'teacher' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Teacher Access Code</label>
+              <input
+                name="teacherCode"
+                type="password"
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your teacher code"
+              />
+              <p className="text-xs text-gray-400 mt-1">This code was provided to you by the administrator.</p>
+            </div>
+          )}
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
