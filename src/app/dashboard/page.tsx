@@ -10,11 +10,10 @@ export default async function DashboardPage() {
 
   const { data: profile } = await adminClient()
     .from('profiles')
-    .select('role, class_id')
+    .select('role')
     .eq('id', user.id)
     .single()
 
   if (profile?.role === 'teacher') redirect('/teacher')
-  else if (!profile?.class_id) redirect('/student/pick-class')
   else redirect('/student')
 }

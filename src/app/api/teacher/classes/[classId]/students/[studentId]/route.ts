@@ -15,21 +15,11 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
     const { classId, studentId } = await params
 
-    // Verify the student actually belongs to this class
-    const { data: student } = await adminClient()
-      .from('profiles')
-      .select('class_id')
-      .eq('id', studentId)
-      .single()
-
-    if (!student || student.class_id !== classId) {
-      return NextResponse.json({ error: 'Student not found in this class.' }, { status: 404 })
-    }
-
     const { error } = await adminClient()
-      .from('profiles')
-      .update({ class_id: null, organization_id: null })
-      .eq('id', studentId)
+      .from('student_classes')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('class_id', classId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })

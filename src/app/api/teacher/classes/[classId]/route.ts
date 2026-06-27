@@ -41,11 +41,8 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
     const { classId } = await params
 
-    // Remove all students from this class first
-    await adminClient()
-      .from('profiles')
-      .update({ class_id: null, organization_id: null })
-      .eq('class_id', classId)
+    // Remove all student enrollments for this class (student_classes has ON DELETE CASCADE but being explicit)
+    await adminClient().from('student_classes').delete().eq('class_id', classId)
 
     // Delete assignments for this class
     await adminClient().from('assignments').delete().eq('class_id', classId)

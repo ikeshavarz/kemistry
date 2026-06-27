@@ -13,13 +13,12 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await adminClient()
       .from('profiles')
-      .select('role, class_id')
+      .select('role')
       .eq('id', user.id)
       .single()
 
     if (!profile) return NextResponse.json({ error: 'Profile not found.' }, { status: 404 })
     if (profile.role === 'teacher') return NextResponse.json({ error: 'Teachers do not join classes.' }, { status: 403 })
-    if (profile.class_id) return NextResponse.json({ error: 'You are already in a class.' }, { status: 400 })
 
     const { data: cls } = await adminClient()
       .from('classes')
@@ -29,13 +28,22 @@ export async function POST(request: NextRequest) {
 
     if (!cls) return NextResponse.json({ error: 'Invalid join code. Double-check with your teacher.' }, { status: 404 })
 
-    const { error: updateError } = await adminClient()
-      .from('profiles')
-      .update({ class_id: cls.id, organization_id: cls.organization_id })
-      .eq('id', user.id)
+    // Check if already enrolled
+    const { data: existing } = await adminClient()
+      .from('student_classes')
+      .select('class_id')
+      .eq('student_id', user.id)
+      .eq('class_id', cls.id)
+      .single()
 
-    if (updateError) {
-      return NextResponse.json({ error: 'Could not join class: ' + updateError.message }, { status: 500 })
+    if (existing) return NextResponse.json({ error: 'You are already in this class.' }, { status: 400 })
+
+    const { error: insertError } = await adminClient()
+      .from('student_classes')
+      .insert({ student_id: user.id, class_id: cls.id })
+
+    if (insertError) {
+      return NextResponse.json({ error: 'Could not join class: ' + insertError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, className: cls.name })

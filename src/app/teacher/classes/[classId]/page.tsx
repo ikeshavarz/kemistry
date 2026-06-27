@@ -14,12 +14,22 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
 
   if (!cls) notFound()
 
-  const { data: students } = await adminClient()
-    .from('profiles')
-    .select('id, full_name, email, created_at')
+  // Get enrolled student IDs
+  const { data: enrollments } = await adminClient()
+    .from('student_classes')
+    .select('student_id, joined_at')
     .eq('class_id', classId)
-    .eq('role', 'student')
-    .order('full_name')
+    .order('joined_at', { ascending: false })
+
+  const studentIds = enrollments?.map(e => e.student_id) ?? []
+
+  const students = studentIds.length > 0
+    ? (await adminClient()
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', studentIds)
+        .order('full_name')).data ?? []
+    : []
 
   const { data: assignments } = await adminClient()
     .from('assignments')
@@ -66,18 +76,17 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-800">
-            Students <span className="text-gray-400 font-normal text-base">({students?.length ?? 0})</span>
+            Students <span className="text-gray-400 font-normal text-base">({students.length})</span>
           </h2>
         </div>
 
-        {students && students.length > 0 ? (
+        {students.length > 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Name</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Email</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Joined</th>
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
@@ -86,9 +95,6 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
                   <tr key={s.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{s.full_name}</td>
                     <td className="px-5 py-3 text-gray-500 text-sm">{s.email}</td>
-                    <td className="px-5 py-3 text-gray-400 text-sm">
-                      {new Date(s.created_at).toLocaleDateString()}
-                    </td>
                     <td className="px-5 py-3 text-right">
                       <RemoveStudentButton classId={classId} studentId={s.id} studentName={s.full_name ?? 'student'} />
                     </td>

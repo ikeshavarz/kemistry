@@ -10,15 +10,13 @@ export default async function ClassesPage() {
     .order('organization_id')
     .order('name')).data ?? []
 
-  const studentCountRows = (await adminClient()
-    .from('profiles')
-    .select('class_id')
-    .eq('role', 'student')
-    .not('class_id', 'is', null)).data ?? []
+  const enrollmentRows = (await adminClient()
+    .from('student_classes')
+    .select('class_id')).data ?? []
 
   const countMap: Record<string, number> = {}
-  studentCountRows.forEach(p => {
-    if (p.class_id) countMap[p.class_id] = (countMap[p.class_id] ?? 0) + 1
+  enrollmentRows.forEach(e => {
+    if (e.class_id) countMap[e.class_id] = (countMap[e.class_id] ?? 0) + 1
   })
 
   return (
@@ -58,7 +56,7 @@ export default async function ClassesPage() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
                         {cls.join_code && (
                           <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5">
                             <span className="text-xs text-indigo-500 font-medium">Join code:</span>
