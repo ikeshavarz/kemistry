@@ -24,38 +24,39 @@ export default async function StudentDashboard() {
     .eq('student_id', user.id)
     .order('joined_at', { ascending: true })
 
-  if (!enrollments || enrollments.length === 0) redirect('/student/pick-class')
+  const classIds = enrollments?.map(e => e.class_id) ?? []
 
-  const classIds = enrollments.map(e => e.class_id)
+  let sortedClasses: { id: string; name: string; organization_id: string }[] = []
+  let orgMap: Record<string, { id: string; name: string; type: string }> = {}
+  let assignmentCount: Record<string, number> = {}
 
-  const { data: classes } = await adminClient()
-    .from('classes')
-    .select('id, name, organization_id')
-    .in('id', classIds)
+  if (classIds.length > 0) {
+    const { data: classes } = await adminClient()
+      .from('classes')
+      .select('id, name, organization_id')
+      .in('id', classIds)
 
-  const orgIds = [...new Set((classes ?? []).map(c => c.organization_id))]
-  const { data: orgs } = await adminClient()
-    .from('organizations')
-    .select('id, name, type')
-    .in('id', orgIds)
+    const orgIds = [...new Set((classes ?? []).map(c => c.organization_id))]
+    const { data: orgs } = await adminClient()
+      .from('organizations')
+      .select('id, name, type')
+      .in('id', orgIds)
 
-  const orgMap = Object.fromEntries((orgs ?? []).map(o => [o.id, o]))
+    orgMap = Object.fromEntries((orgs ?? []).map(o => [o.id, o]))
 
-  // Assignment counts per class
-  const { data: allAssignments } = await adminClient()
-    .from('assignments')
-    .select('class_id')
-    .in('class_id', classIds)
+    const { data: allAssignments } = await adminClient()
+      .from('assignments')
+      .select('class_id')
+      .in('class_id', classIds)
 
-  const assignmentCount: Record<string, number> = {}
-  allAssignments?.forEach(a => {
-    assignmentCount[a.class_id] = (assignmentCount[a.class_id] ?? 0) + 1
-  })
+    allAssignments?.forEach(a => {
+      assignmentCount[a.class_id] = (assignmentCount[a.class_id] ?? 0) + 1
+    })
 
-  // Sort classes to match enrollment order
-  const sortedClasses = classIds
-    .map(id => (classes ?? []).find(c => c.id === id))
-    .filter(Boolean) as { id: string; name: string; organization_id: string }[]
+    sortedClasses = classIds
+      .map(id => (classes ?? []).find(c => c.id === id))
+      .filter(Boolean) as { id: string; name: string; organization_id: string }[]
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,9 +85,17 @@ export default async function StudentDashboard() {
           </div>
           <Link href="/student/pick-class"
             className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
-            + Join Another Class
+            + Join a Class
           </Link>
         </div>
+
+        {sortedClasses.length === 0 && (
+          <div className="bg-white rounded-xl border border-dashed border-gray-300 p-12 text-center">
+            <div className="text-4xl mb-3">📚</div>
+            <p className="text-gray-700 font-medium mb-1">You haven&apos;t joined any classes yet.</p>
+            <p className="text-gray-400 text-sm mb-5">Ask your teacher for a join code and click the button above.</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedClasses.map(cls => {

@@ -11,7 +11,6 @@ export default function JoinClassPage() {
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState('')
-  const [isFirstClass, setIsFirstClass] = useState(false)
 
   useEffect(() => {
     async function check() {
@@ -27,14 +26,6 @@ export default function JoinClassPage() {
 
       if (profile?.role === 'teacher') { router.replace('/teacher'); return }
 
-      // Check if they have any classes yet
-      const { data: enrollments } = await supabase
-        .from('student_classes')
-        .select('class_id')
-        .eq('student_id', user.id)
-        .limit(1)
-
-      setIsFirstClass(!enrollments || enrollments.length === 0)
       setChecking(false)
     }
     check()
@@ -75,9 +66,7 @@ export default function JoinClassPage() {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">🔑</div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isFirstClass ? 'Join Your First Class' : 'Join Another Class'}
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Join a Class</h1>
           <p className="text-gray-500 text-sm mt-1">Enter the join code your teacher gave you.</p>
         </div>
 
@@ -105,20 +94,10 @@ export default function JoinClassPage() {
           </button>
         </form>
 
-        {!isFirstClass && (
-          <Link href="/student"
-            className="block text-center text-sm text-gray-400 hover:text-gray-600 transition py-3 mt-2">
-            ← Back to my classes
-          </Link>
-        )}
-
-        {isFirstClass && (
-          <form action="/api/auth/signout" method="post" className="mt-4">
-            <button type="submit" className="w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
-              Sign out
-            </button>
-          </form>
-        )}
+        <Link href="/student"
+          className="block text-center text-sm text-gray-400 hover:text-gray-600 transition py-3 mt-2">
+          ← Back to my classes
+        </Link>
       </div>
     </main>
   )
