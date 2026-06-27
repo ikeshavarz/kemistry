@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 
 export default async function StudentDashboard() {
@@ -7,7 +8,7 @@ export default async function StudentDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile } = await adminClient()
     .from('profiles')
     .select('role, full_name, organization_id, class_id, organizations(name), classes(name)')
     .eq('id', user.id)

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -7,12 +8,13 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile } = await adminClient()
     .from('profiles')
-    .select('role')
+    .select('role, class_id')
     .eq('id', user.id)
     .single()
 
   if (profile?.role === 'teacher') redirect('/teacher')
+  else if (!profile?.class_id) redirect('/student/pick-class')
   else redirect('/student')
 }
