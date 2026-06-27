@@ -16,24 +16,21 @@ export default function SignupPage() {
   const [doneEmail, setDoneEmail] = useState('')
 
   useEffect(() => {
-    async function loadOrgs() {
-      const supabase = createClient()
-      const { data } = await supabase.from('organizations').select('*').order('name')
+    const supabase = createClient()
+    supabase.from('organizations').select('*').order('name').then(({ data }) => {
       if (data) setOrgs(data)
-    }
-    loadOrgs()
+    })
   }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const formData = new FormData(e.currentTarget)
-    const result = await signupAction(formData)
-    if (result.error) {
+    const result = await signupAction(new FormData(e.currentTarget))
+    if ('error' in result && result.error) {
       setError(result.error)
       setLoading(false)
-    } else {
+    } else if ('success' in result) {
       setDoneEmail(result.email ?? '')
       setDone(true)
     }
@@ -65,20 +62,14 @@ export default function SignupPage() {
           <p className="text-gray-500 text-sm mt-1">Chemistry Learning Platform</p>
         </div>
 
-        {/* Role selector */}
+        {/* Role toggle */}
         <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-5">
-          <button
-            type="button"
-            onClick={() => setRole('student')}
-            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'student' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-          >
+          <button type="button" onClick={() => setRole('student')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'student' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
             Student
           </button>
-          <button
-            type="button"
-            onClick={() => setRole('teacher')}
-            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'teacher' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-          >
+          <button type="button" onClick={() => setRole('teacher')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'teacher' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
             Teacher
           </button>
         </div>
@@ -88,86 +79,73 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              name="fullName"
-              type="text"
-              required
+            <input name="fullName" type="text" required
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Your full name"
-            />
+              placeholder="Your full name" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              name="email"
-              type="email"
-              required
+            <input name="email" type="email" required
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com"
-            />
+              placeholder="you@example.com" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
+            <input name="password" type="password" required minLength={8}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="At least 8 characters"
-            />
+              placeholder="At least 8 characters" />
           </div>
 
-          {/* Student only: institution */}
+          {/* Student fields */}
           {role === 'student' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-              <select
-                name="orgId"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                defaultValue=""
-              >
-                <option value="" disabled>Select your institution…</option>
-                {orgs.map(org => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
+                <select name="orgId" defaultValue=""
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="" disabled>Select your institution…</option>
+                  {orgs.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Institution Access Code</label>
+                <input name="studentCode" type="password" required
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Code provided by your teacher" />
+              </div>
+            </>
           )}
 
-          {/* Teacher only: secret code */}
+          {/* Teacher field */}
           {role === 'teacher' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Teacher Access Code</label>
-              <input
-                name="teacherCode"
-                type="password"
-                required
+              <input name="teacherCode" type="password" required
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your teacher code"
-              />
+                placeholder="Enter your teacher code" />
               <p className="text-xs text-gray-400 mt-1">This code was provided to you by the administrator.</p>
             </div>
           )}
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading}
+            className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-blue-600 font-medium hover:underline">
-            Sign in
-          </Link>
+          <Link href="/login" className="text-blue-600 font-medium hover:underline">Sign in</Link>
         </p>
       </div>
     </main>
