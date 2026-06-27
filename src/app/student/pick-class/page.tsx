@@ -11,6 +11,7 @@ export default function PickClassPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [selected, setSelected] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [error, setError] = useState('')
   const [orgName, setOrgName] = useState('')
 
@@ -18,7 +19,7 @@ export default function PickClassPage() {
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.replace('/login'); return }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -26,10 +27,13 @@ export default function PickClassPage() {
         .eq('id', user.id)
         .single()
 
-      // Teachers and already-enrolled students should not be here
-      if (profile?.role === 'teacher') { router.push('/teacher'); return }
-      if (profile?.class_id) { router.push('/student'); return }
-      if (!profile?.organization_id) return
+      if (profile?.role === 'teacher') { router.replace('/teacher'); return }
+      if (profile?.class_id) { router.replace('/student'); return }
+
+      if (!profile?.organization_id) {
+        setChecking(false)
+        return
+      }
 
       setOrgName((profile as any).organizations?.name ?? '')
 
@@ -39,22 +43,39 @@ export default function PickClassPage() {
         .eq('organization_id', profile.organization_id)
         .order('name')
 
-      if (cls) setClasses(cls)
+      setClasses(cls ?? [])
+      setChecking(false)
     }
     load()
-  }, [router])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handlePick() {
     if (!selected) { setError('Please select a class.'); return }
     setLoading(true)
+    setError('')
+
     const res = await fetch('/api/student/pick-class', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ classId: selected }),
     })
     const data = await res.json()
-    if (data.error) { setError(data.error); setLoading(false) }
-    else router.push('/student')
+
+    if (!res.ok || data.error) {
+      setError(data.error ?? 'Something went wrong.')
+      setLoading(false)
+    } else {
+      // Use replace so back button doesn't return here
+      router.replace('/student')
+    }
+  }
+
+  if (checking) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-indigo-950 to-blue-900 flex items-center justify-center">
+        <div className="text-white text-lg">Loading…</div>
+      </main>
+    )
   }
 
   return (
@@ -64,12 +85,13 @@ export default function PickClassPage() {
           <div className="text-4xl mb-2">🎓</div>
           <h1 className="text-2xl font-bold text-gray-900">Choose Your Class</h1>
           {orgName && <p className="text-gray-500 text-sm mt-1">{orgName}</p>}
+          <p className="text-gray-400 text-xs mt-1">You only do this once.</p>
         </div>
 
         {classes.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">
-            <p>No classes have been created yet.</p>
-            <p className="text-sm mt-2">Please check back later or contact your teacher.</p>
+          <div className="text-center text-gray-400 py-8 space-y-2">
+            <p className="text-lg">No classes available yet.</p>
+            <p className="text-sm">Your teacher hasn&apos;t created any classes. Check back later.</p>
           </div>
         ) : (
           <div className="space-y-2 mb-6">
@@ -86,12 +108,18 @@ export default function PickClassPage() {
           </div>
         )}
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
 
-        <button onClick={handlePick} disabled={loading || classes.length === 0}
-          className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
-          {loading ? 'Saving…' : 'Join This Class'}
-        </button>
+        {classes.length > 0 && (
+          <button onClick={handlePick} disabled={loading || !selected}
+            className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+            {loading ? 'Joining…' : 'Join This Class'}
+          </button>
+        )}
 
         <form action="/api/auth/signout" method="post" className="mt-4">
           <button type="submit" className="w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
