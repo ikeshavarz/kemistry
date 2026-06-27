@@ -8,35 +8,31 @@ export default async function StudentDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Flat query — no foreign key joins that might break
   const { data: profile } = await adminClient()
     .from('profiles')
-    .select('role, full_name, organization_id, class_id, organizations(name), classes(name)')
+    .select('role, full_name, organization_id, class_id')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role === 'teacher') redirect('/teacher')
+  if (!profile) redirect('/login')
+  if (profile.role === 'teacher') redirect('/teacher')
+  if (!profile.class_id) redirect('/student/pick-class')
 
-  // First-time login: no class selected yet
-  if (!profile?.class_id) redirect('/student/pick-class')
-
-  const classId = profile.class_id
-  const orgId = profile.organization_id
-
-  const [{ data: assignments }, { data: announcements }, { data: courses }] = await Promise.all([
-    supabase.from('assignments').select('*')
-      .eq('class_id', classId)
-      .order('due_date', { ascending: true }),
-    supabase.from('announcements').select('*')
-      .or(`class_id.eq.${classId},and(organization_id.eq.${orgId},class_id.is.null)`)
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase.from('courses').select('*')
-      .eq('organization_id', orgId)
-      .order('created_at', { ascending: false }),
+  // Fetch related names separately
+  const [{ data: org }, { data: cls }] = await Promise.all([
+    adminClient().from('organizations').select('name').eq('id', profile.organization_id).single(),
+    adminClient().from('classes').select('name').eq('id', profile.class_id).single(),
   ])
 
-  const org = (profile as any).organizations
-  const cls = (profile as any).classes
+  // Fetch class-scoped content
+  const [{ data: assignments }, { data: announcements }, { data: courses }] = await Promise.all([
+    adminClient().from('assignments').select('*').eq('class_id', profile.class_id).order('due_date', { ascending: true }),
+    adminClient().from('announcements').select('*')
+      .or(`class_id.eq.${profile.class_id},and(organization_id.eq.${profile.organization_id},class_id.is.null)`)
+      .order('created_at', { ascending: false }).limit(5),
+    adminClient().from('courses').select('*').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }),
+  ])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,7 +45,7 @@ export default async function StudentDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-indigo-200">{profile?.full_name}</span>
+          <span className="text-sm text-indigo-200">{profile.full_name}</span>
           <form action="/api/auth/signout" method="post">
             <button className="text-sm bg-indigo-800 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition">
               Sign Out
@@ -59,11 +55,11 @@ export default async function StudentDashboard() {
       </header>
 
       <div className="max-w-4xl mx-auto p-6 space-y-8">
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-indigo-800 font-medium">Welcome back, {profile?.full_name?.split(' ')[0]} 👋</p>
-            <p className="text-indigo-500 text-sm mt-0.5">{cls?.name} · {org?.name}</p>
-          </div>
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+          <p className="text-indigo-800 font-medium">
+            Welcome back, {profile.full_name?.split(' ')[0]} 👋
+          </p>
+          <p className="text-indigo-500 text-sm mt-0.5">{cls?.name} · {org?.name}</p>
         </div>
 
         {/* Announcements */}
@@ -90,8 +86,7 @@ export default async function StudentDashboard() {
               {assignments.map((a: any) => {
                 const overdue = a.due_date && new Date(a.due_date) < new Date()
                 return (
-                  <Link key={a.id} href={`/student/assignments/${a.id}`}
-                    className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition">
+                  <div key={a.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4">
                     <div>
                       <p className="font-medium text-gray-900">{a.title}</p>
                       {a.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">{a.description}</p>}
@@ -103,7 +98,7 @@ export default async function StudentDashboard() {
                         {overdue ? 'Overdue' : `Due ${new Date(a.due_date).toLocaleDateString()}`}
                       </span>
                     )}
-                  </Link>
+                  </div>
                 )
               })}
             </div>
@@ -120,17 +115,15 @@ export default async function StudentDashboard() {
           {courses && courses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {courses.map((c: any) => (
-                <Link key={c.id} href={`/student/courses/${c.id}`}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition">
+                <div key={c.id} className="bg-white rounded-xl border border-gray-200 p-5">
                   <h3 className="font-semibold text-gray-900">{c.title}</h3>
                   {c.description && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{c.description}</p>}
-                  <span className="mt-3 inline-block text-indigo-600 text-sm font-medium">View lessons →</span>
-                </Link>
+                </div>
               ))}
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-400">
-              No courses available yet.
+              No courses yet.
             </div>
           )}
         </section>
