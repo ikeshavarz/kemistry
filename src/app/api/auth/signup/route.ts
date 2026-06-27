@@ -46,11 +46,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create the auth user
+    // Create the auth user (email_confirm:true = no confirmation email needed)
     const { data, error: signupError } = await admin().auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: true,
       user_metadata: { full_name: fullName },
     })
 
@@ -58,25 +58,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: signupError?.message ?? 'Signup failed.' }, { status: 400 })
     }
 
-    // Update profile with role and org
-    const { error: profileError } = await admin()
+    // Update profile with role and org (trigger already inserted the row)
+    await admin()
       .from('profiles')
-      .update({
+      .upsert({
+        id: data.user.id,
+        email,
         full_name: fullName,
         role: role === 'teacher' ? 'teacher' : 'student',
         organization_id: role === 'teacher' ? null : orgId,
       })
-      .eq('id', data.user.id)
-
-    if (profileError) {
-      return NextResponse.json({ error: 'Account created but profile setup failed: ' + profileError.message }, { status: 500 })
-    }
-
-    // Send confirmation email
-    await admin().auth.admin.generateLink({
-      type: 'magiclink',
-      email,
-    })
 
     return NextResponse.json({ success: true, email })
   } catch (err: unknown) {

@@ -62,10 +62,10 @@ export default function SignupPage() {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-950 to-indigo-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
-          <div className="text-5xl mb-4">📧</div>
+          <div className="text-5xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
           <p className="text-gray-500 mb-6">
-            Your account for <strong>{doneEmail}</strong> is ready. You can now sign in.
+            Your account for <strong>{doneEmail}</strong> is ready. Sign in now to get started.
           </p>
           <Link href="/login"
             className="inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
