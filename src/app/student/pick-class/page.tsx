@@ -18,14 +18,17 @@ export default function PickClassPage() {
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) { router.push('/login'); return }
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('organization_id, organizations(name)')
+        .select('role, organization_id, class_id, organizations(name)')
         .eq('id', user.id)
         .single()
 
+      // Teachers and already-enrolled students should not be here
+      if (profile?.role === 'teacher') { router.push('/teacher'); return }
+      if (profile?.class_id) { router.push('/student'); return }
       if (!profile?.organization_id) return
 
       setOrgName((profile as any).organizations?.name ?? '')
@@ -39,7 +42,7 @@ export default function PickClassPage() {
       if (cls) setClasses(cls)
     }
     load()
-  }, [])
+  }, [router])
 
   async function handlePick() {
     if (!selected) { setError('Please select a class.'); return }
@@ -89,6 +92,12 @@ export default function PickClassPage() {
           className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
           {loading ? 'Saving…' : 'Join This Class'}
         </button>
+
+        <form action="/api/auth/signout" method="post" className="mt-4">
+          <button type="submit" className="w-full text-sm text-gray-400 hover:text-gray-600 transition py-2">
+            Sign out
+          </button>
+        </form>
       </div>
     </main>
   )

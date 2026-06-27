@@ -17,12 +17,26 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message)
       setLoading(false)
+      return
+    }
+
+    // Read role client-side where session is definitely available
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, class_id')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (profile?.role === 'teacher') {
+      router.push('/teacher')
+    } else if (!profile?.class_id) {
+      router.push('/student/pick-class')
     } else {
-      router.push('/dashboard')
+      router.push('/student')
     }
   }
 
