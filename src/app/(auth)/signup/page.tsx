@@ -1,25 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-
-type Organization = { id: string; name: string; type: string }
 
 export default function SignupPage() {
-  const [orgs, setOrgs] = useState<Organization[]>([])
   const [role, setRole] = useState<'student' | 'teacher'>('student')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [doneEmail, setDoneEmail] = useState('')
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.from('organizations').select('*').order('name').then(({ data }) => {
-      if (data) setOrgs(data)
-    })
-  }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -32,9 +21,7 @@ export default function SignupPage() {
       email: fd.get('email'),
       password: fd.get('password'),
       role,
-      orgId: fd.get('orgId') ?? '',
       teacherCode: fd.get('teacherCode') ?? '',
-      studentCode: fd.get('studentCode') ?? '',
     }
 
     try {
@@ -65,7 +52,7 @@ export default function SignupPage() {
           <div className="text-5xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
           <p className="text-gray-500 mb-6">
-            Your account for <strong>{doneEmail}</strong> is ready. Sign in now to get started.
+            Your account for <strong>{doneEmail}</strong> is ready. Sign in and use your class join code to get started.
           </p>
           <Link href="/login"
             className="inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
@@ -85,7 +72,6 @@ export default function SignupPage() {
           <p className="text-gray-500 text-sm mt-1">Chemistry Learning Platform</p>
         </div>
 
-        {/* Role toggle */}
         <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-5">
           <button type="button" onClick={() => setRole('student')}
             className={`flex-1 py-2.5 text-sm font-semibold transition ${role === 'student' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
@@ -119,33 +105,18 @@ export default function SignupPage() {
               placeholder="At least 8 characters" />
           </div>
 
-          {role === 'student' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-                <select name="orgId" defaultValue=""
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="" disabled>Select your institution…</option>
-                  {orgs.map(org => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Institution Access Code</label>
-                <input name="studentCode" type="password"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Code provided by your teacher" />
-              </div>
-            </>
-          )}
-
           {role === 'teacher' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Teacher Access Code</label>
               <input name="teacherCode" type="password"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter your teacher code" />
+            </div>
+          )}
+
+          {role === 'student' && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
+              After creating your account, sign in and enter your class join code from your teacher.
             </div>
           )}
 

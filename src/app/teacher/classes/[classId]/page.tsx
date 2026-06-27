@@ -1,42 +1,66 @@
-import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { DeleteClassButton, EditClassButton, RemoveStudentButton, CopyCodeButton } from '@/components/teacher/ClassActions'
 
 export default async function ClassDetailPage({ params }: { params: Promise<{ classId: string }> }) {
   const { classId } = await params
-  const supabase = await createClient()
 
-  const { data: cls } = await supabase
+  const { data: cls } = await adminClient()
     .from('classes')
-    .select('*, organizations(name, type)')
+    .select('id, name, join_code, organization_id, organizations(name, type)')
     .eq('id', classId)
     .single()
 
   if (!cls) notFound()
 
-  const { data: students } = await supabase
+  const { data: students } = await adminClient()
     .from('profiles')
     .select('id, full_name, email, created_at')
     .eq('class_id', classId)
     .eq('role', 'student')
     .order('full_name')
 
-  const { data: assignments } = await supabase
+  const { data: assignments } = await adminClient()
     .from('assignments')
     .select('id, title, due_date, created_at')
     .eq('class_id', classId)
     .order('created_at', { ascending: false })
 
+  const orgName = (cls as any).organizations?.name ?? ''
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div className="flex items-center gap-3">
-        <Link href="/teacher/classes" className="text-gray-400 hover:text-gray-600 transition">← Classes</Link>
-        <span className="text-gray-300">/</span>
-        <h1 className="text-2xl font-bold text-gray-900">{cls.name}</h1>
-        <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">
-          {(cls as any).organizations?.name}
-        </span>
+      {/* Header */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Link href="/teacher/classes" className="text-gray-400 hover:text-gray-600 transition">← Classes</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-2xl font-bold text-gray-900">{cls.name}</span>
+          {orgName && (
+            <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">{orgName}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <EditClassButton classId={cls.id} currentName={cls.name} />
+          <DeleteClassButton classId={cls.id} className={cls.name} />
+        </div>
       </div>
+
+      {/* Join Code */}
+      {cls.join_code && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-indigo-700 mb-1">Class Join Code</p>
+            <p className="text-xs text-indigo-500">Share this with your students so they can join this class.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-mono font-bold text-3xl text-indigo-800 tracking-widest">{cls.join_code}</span>
+            <CopyCodeButton code={cls.join_code} />
+          </div>
+        </div>
+      )}
 
       {/* Students */}
       <section>
@@ -54,6 +78,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Name</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Email</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-5 py-3">Joined</th>
+                  <th className="px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -64,6 +89,9 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
                     <td className="px-5 py-3 text-gray-400 text-sm">
                       {new Date(s.created_at).toLocaleDateString()}
                     </td>
+                    <td className="px-5 py-3 text-right">
+                      <RemoveStudentButton classId={classId} studentId={s.id} studentName={s.full_name ?? 'student'} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -71,12 +99,12 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ cl
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-400">
-            No students in this class yet. Share the institution access code so students can sign up and select this class.
+            No students yet. Share the join code above so students can join.
           </div>
         )}
       </section>
 
-      {/* Assignments for this class */}
+      {/* Assignments */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-800">Assignments</h2>

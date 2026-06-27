@@ -11,7 +11,7 @@ function admin() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { fullName, email, password, role, orgId, teacherCode, studentCode } = await request.json()
+    const { fullName, email, password, role, teacherCode } = await request.json()
 
     if (!fullName || !email || !password) {
       return NextResponse.json({ error: 'Please fill in all required fields.' }, { status: 400 })
@@ -21,32 +21,8 @@ export async function POST(request: NextRequest) {
       if (teacherCode !== process.env.TEACHER_SECRET_CODE) {
         return NextResponse.json({ error: 'Invalid teacher code. Contact the administrator.' }, { status: 403 })
       }
-    } else {
-      if (!orgId) {
-        return NextResponse.json({ error: 'Please select your institution.' }, { status: 400 })
-      }
-      if (!studentCode) {
-        return NextResponse.json({ error: 'Please enter your institution access code.' }, { status: 400 })
-      }
-
-      const { data: org, error: orgError } = await admin()
-        .from('organizations')
-        .select('access_code, name')
-        .eq('id', orgId)
-        .single()
-
-      if (orgError || !org) {
-        return NextResponse.json({ error: 'Institution not found.' }, { status: 400 })
-      }
-      if (org.access_code !== studentCode.trim()) {
-        return NextResponse.json(
-          { error: `Incorrect access code for ${org.name}. Ask your teacher for the correct code.` },
-          { status: 403 }
-        )
-      }
     }
 
-    // Create the auth user (email_confirm:true = no confirmation email needed)
     const { data, error: signupError } = await admin().auth.admin.createUser({
       email,
       password,
@@ -58,7 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: signupError?.message ?? 'Signup failed.' }, { status: 400 })
     }
 
-    // Update profile with role and org (trigger already inserted the row)
     await admin()
       .from('profiles')
       .upsert({
@@ -66,7 +41,7 @@ export async function POST(request: NextRequest) {
         email,
         full_name: fullName,
         role: role === 'teacher' ? 'teacher' : 'student',
-        organization_id: role === 'teacher' ? null : orgId,
+        organization_id: null,
       })
 
     return NextResponse.json({ success: true, email })

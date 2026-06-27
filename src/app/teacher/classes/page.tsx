@@ -1,23 +1,23 @@
-import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import { CopyCodeButton, DeleteClassButton } from '@/components/teacher/ClassActions'
 
 export default async function ClassesPage() {
-  const supabase = await createClient()
-  const { data: orgs } = await supabase.from('organizations').select('*').order('name')
-  const { data: classes } = await supabase
+  const orgs = (await adminClient().from('organizations').select('*').order('name')).data ?? []
+  const classes = (await adminClient()
     .from('classes')
-    .select('*, organizations(name, type)')
+    .select('id, name, organization_id, join_code')
     .order('organization_id')
-    .order('name')
+    .order('name')).data ?? []
 
-  const { data: studentCounts } = await supabase
+  const studentCountRows = (await adminClient()
     .from('profiles')
     .select('class_id')
     .eq('role', 'student')
-    .not('class_id', 'is', null)
+    .not('class_id', 'is', null)).data ?? []
 
   const countMap: Record<string, number> = {}
-  studentCounts?.forEach(p => {
+  studentCountRows.forEach(p => {
     if (p.class_id) countMap[p.class_id] = (countMap[p.class_id] ?? 0) + 1
   })
 
@@ -34,8 +34,8 @@ export default async function ClassesPage() {
         </Link>
       </div>
 
-      {orgs?.map(org => {
-        const orgClasses = classes?.filter(c => c.organization_id === org.id) ?? []
+      {orgs.map(org => {
+        const orgClasses = classes.filter(c => c.organization_id === org.id)
         return (
           <section key={org.id}>
             <div className="flex items-center gap-2 mb-3">
@@ -44,18 +44,36 @@ export default async function ClassesPage() {
             </div>
 
             {orgClasses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
                 {orgClasses.map(cls => (
-                  <Link key={cls.id} href={`/teacher/classes/${cls.id}`}
-                    className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{cls.name}</h3>
-                      <p className="text-sm text-gray-400 mt-0.5">
-                        {countMap[cls.id] ?? 0} student{(countMap[cls.id] ?? 0) !== 1 ? 's' : ''}
-                      </p>
+                  <div key={cls.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <Link href={`/teacher/classes/${cls.id}`}
+                          className="font-semibold text-gray-900 hover:text-blue-600 transition">
+                          {cls.name}
+                        </Link>
+                        <p className="text-sm text-gray-400 mt-0.5">
+                          {countMap[cls.id] ?? 0} student{(countMap[cls.id] ?? 0) !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {cls.join_code && (
+                          <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5">
+                            <span className="text-xs text-indigo-500 font-medium">Join code:</span>
+                            <span className="font-mono font-bold text-indigo-700 tracking-widest text-sm">{cls.join_code}</span>
+                            <CopyCodeButton code={cls.join_code} />
+                          </div>
+                        )}
+                        <Link href={`/teacher/classes/${cls.id}`}
+                          className="text-sm text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg transition">
+                          View →
+                        </Link>
+                        <DeleteClassButton classId={cls.id} className={cls.name} />
+                      </div>
                     </div>
-                    <span className="text-gray-300 text-lg">→</span>
-                  </Link>
+                  </div>
                 ))}
               </div>
             ) : (
