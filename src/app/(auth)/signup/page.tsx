@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { signupAction } from './actions'
 
 type Organization = { id: string; name: string; type: string }
 
@@ -26,13 +25,36 @@ export default function SignupPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const result = await signupAction(new FormData(e.currentTarget))
-    if ('error' in result && result.error) {
-      setError(result.error)
+
+    const fd = new FormData(e.currentTarget)
+    const body = {
+      fullName: fd.get('fullName'),
+      email: fd.get('email'),
+      password: fd.get('password'),
+      role,
+      orgId: fd.get('orgId') ?? '',
+      teacherCode: fd.get('teacherCode') ?? '',
+      studentCode: fd.get('studentCode') ?? '',
+    }
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        setError(data.error ?? 'Something went wrong. Please try again.')
+        setLoading(false)
+      } else {
+        setDoneEmail(data.email)
+        setDone(true)
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
       setLoading(false)
-    } else if ('success' in result) {
-      setDoneEmail(result.email ?? '')
-      setDone(true)
     }
   }
 
@@ -41,11 +63,12 @@ export default function SignupPage() {
       <main className="min-h-screen bg-gradient-to-br from-blue-950 to-indigo-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
           <div className="text-5xl mb-4">📧</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
-          <p className="text-gray-500">
-            We sent a confirmation link to <strong>{doneEmail}</strong>. Click it to activate your account, then sign in.
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
+          <p className="text-gray-500 mb-6">
+            Your account for <strong>{doneEmail}</strong> is ready. You can now sign in.
           </p>
-          <Link href="/login" className="mt-6 inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
+          <Link href="/login"
+            className="inline-block bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
             Go to Sign In
           </Link>
         </div>
@@ -75,8 +98,6 @@ export default function SignupPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="hidden" name="role" value={role} />
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input name="fullName" type="text" required
@@ -98,7 +119,6 @@ export default function SignupPage() {
               placeholder="At least 8 characters" />
           </div>
 
-          {/* Student fields */}
           {role === 'student' && (
             <>
               <div>
@@ -113,21 +133,19 @@ export default function SignupPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Institution Access Code</label>
-                <input name="studentCode" type="password" required
+                <input name="studentCode" type="password"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Code provided by your teacher" />
               </div>
             </>
           )}
 
-          {/* Teacher field */}
           {role === 'teacher' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Teacher Access Code</label>
-              <input name="teacherCode" type="password" required
+              <input name="teacherCode" type="password"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter your teacher code" />
-              <p className="text-xs text-gray-400 mt-1">This code was provided to you by the administrator.</p>
             </div>
           )}
 
